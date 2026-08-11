@@ -4,7 +4,8 @@ from flask import (
     request,
     redirect,
     url_for,
-    session
+    session,
+    jsonify
 )
 
 from werkzeug.security import (
@@ -133,6 +134,48 @@ def admin():
         "admin.html",
         username=session["username"]
     )
+
+
+@app.route("/api/profile/<int:user_id>")
+def profile_api(user_id):
+
+    if "user_id" not in session:
+        return jsonify({
+            "error": "Authentication required"
+        }), 401
+
+    # Authorization check:
+    # A normal user can only access their own profile.
+    if session.get("role") != "admin" and session["user_id"] != user_id:
+        return jsonify({
+            "error": "Access denied"
+        }), 403
+
+    connection = get_db_connection()
+
+    user = connection.execute(
+        """
+        SELECT id, username, email, role, created_at
+        FROM users
+        WHERE id = ?
+        """,
+        (user_id,)
+    ).fetchone()
+
+    connection.close()
+
+    if not user:
+        return jsonify({
+            "error": "User not found"
+        }), 404
+
+    return jsonify({
+        "id": user["id"],
+        "username": user["username"],
+        "email": user["email"],
+        "role": user["role"],
+        "created_at": user["created_at"]
+    })
 
 
 @app.route("/logout")
