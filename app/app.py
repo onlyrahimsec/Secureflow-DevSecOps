@@ -1,6 +1,10 @@
 from flask import Flask, render_template
+from database import init_db
 
 app = Flask(__name__)
+
+# Initialize database
+init_db()
 
 
 @app.route("/")
