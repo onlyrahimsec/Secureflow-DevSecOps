@@ -1,8 +1,25 @@
-from flask import Flask, render_template, request, redirect, url_for
-from werkzeug.security import generate_password_hash
+from flask import (
+    Flask,
+    render_template,
+    request,
+    redirect,
+    url_for,
+    session
+)
+
+from werkzeug.security import (
+    generate_password_hash,
+    check_password_hash
+)
+
 from database import init_db, get_db_connection
 
+
 app = Flask(__name__)
+
+# Session signing key.
+# This will be moved to an environment variable later.
+app.secret_key = "secureflow-development-key"
 
 # Initialize database
 init_db()
@@ -22,11 +39,9 @@ def register():
         email = request.form.get("email", "").strip()
         password = request.form.get("password", "")
 
-        # Basic input validation
         if not username or not email or not password:
             return "All fields are required.", 400
 
-        # Hash password before storing it
         password_hash = generate_password_hash(password)
 
         connection = get_db_connection()
@@ -48,10 +63,75 @@ def register():
 
         connection.close()
 
-        return redirect(url_for("home"))
+        return redirect(url_for("login"))
 
     return render_template("register.html")
 
 
+@app.route("/login", methods=["GET", "POST"])
+def login():
+
+    if request.method == "POST":
+
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+
+        if not username or not password:
+            return "Username and password are required.", 400
+
+        connection = get_db_connection()
+
+        user = connection.execute(
+            """
+            SELECT id, username, password_hash, role
+            FROM users
+            WHERE username = ?
+            """,
+            (username,)
+        ).fetchone()
+
+        connection.close()
+
+        if user and check_password_hash(
+            user["password_hash"],
+            password
+        ):
+            session.clear()
+
+            session["user_id"] = user["id"]
+            session["username"] = user["username"]
+            session["role"] = user["role"]
+
+            return redirect(url_for("dashboard"))
+
+        return "Invalid username or password.", 401
+
+    return render_template("login.html")
+
+
+@app.route("/dashboard")
+def dashboard():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    return render_template(
+        "dashboard.html",
+        username=session["username"]
+    )
+
+
+@app.route("/logout")
+def logout():
+
+    session.clear()
+
+    return redirect(url_for("login"))
+
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    app.run(
+        host="0.0.0.0",
+        port=5000,
+        debug=False
+    )
