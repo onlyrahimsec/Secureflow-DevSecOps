@@ -22,14 +22,42 @@ app = Flask(__name__)
 # Load application configuration
 app.config.from_object(Config)
 
+
 # Initialize database
 init_db()
 
+
+# ---------------------------------------------------------
+# Security Headers
+# ---------------------------------------------------------
+
+@app.after_request
+def add_security_headers(response):
+    """
+    Add security-related HTTP response headers.
+
+    SF-001 remediation:
+    X-Content-Type-Options prevents browsers from MIME-sniffing
+    the response content.
+    """
+
+    response.headers["X-Content-Type-Options"] = "nosniff"
+
+    return response
+
+
+# ---------------------------------------------------------
+# Home
+# ---------------------------------------------------------
 
 @app.route("/")
 def home():
     return render_template("index.html")
 
+
+# ---------------------------------------------------------
+# Health Check
+# ---------------------------------------------------------
 
 @app.route("/health")
 def health():
@@ -38,6 +66,10 @@ def health():
         "service": "SecureFlow"
     }, 200
 
+
+# ---------------------------------------------------------
+# Registration
+# ---------------------------------------------------------
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -56,6 +88,7 @@ def register():
         connection = get_db_connection()
 
         try:
+
             connection.execute(
                 """
                 INSERT INTO users (username, email, password_hash)
@@ -67,7 +100,9 @@ def register():
             connection.commit()
 
         except Exception:
+
             connection.close()
+
             return "Unable to create account.", 400
 
         connection.close()
@@ -76,6 +111,10 @@ def register():
 
     return render_template("register.html")
 
+
+# ---------------------------------------------------------
+# Login
+# ---------------------------------------------------------
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -105,6 +144,7 @@ def login():
             user["password_hash"],
             password
         ):
+
             session.clear()
 
             session["user_id"] = user["id"]
@@ -118,6 +158,10 @@ def login():
     return render_template("login.html")
 
 
+# ---------------------------------------------------------
+# Dashboard
+# ---------------------------------------------------------
+
 @app.route("/dashboard")
 def dashboard():
 
@@ -129,6 +173,10 @@ def dashboard():
         username=session["username"]
     )
 
+
+# ---------------------------------------------------------
+# Admin
+# ---------------------------------------------------------
 
 @app.route("/admin")
 def admin():
@@ -144,6 +192,10 @@ def admin():
         username=session["username"]
     )
 
+
+# ---------------------------------------------------------
+# Profile API
+# ---------------------------------------------------------
 
 @app.route("/api/profile/<int:user_id>")
 def profile_api(user_id):
@@ -188,6 +240,10 @@ def profile_api(user_id):
     })
 
 
+# ---------------------------------------------------------
+# Logout
+# ---------------------------------------------------------
+
 @app.route("/logout")
 def logout():
 
@@ -196,7 +252,12 @@ def logout():
     return redirect(url_for("login"))
 
 
+# ---------------------------------------------------------
+# Application Entry Point
+# ---------------------------------------------------------
+
 if __name__ == "__main__":
+
     app.run(
         host="0.0.0.0",
         port=5000,
