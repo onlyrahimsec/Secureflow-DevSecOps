@@ -17,11 +17,10 @@ from database import init_db, get_db_connection
 
 app = Flask(__name__)
 
-# Session signing key.
-# This will be moved to an environment variable later.
+# Development-only secret.
+# Production implementation will use environment-based secrets.
 app.secret_key = "secureflow-development-key"
 
-# Initialize database
 init_db()
 
 
@@ -117,6 +116,21 @@ def dashboard():
 
     return render_template(
         "dashboard.html",
+        username=session["username"]
+    )
+
+
+@app.route("/admin")
+def admin():
+
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    if session.get("role") != "admin":
+        return "Access denied.", 403
+
+    return render_template(
+        "admin.html",
         username=session["username"]
     )
 
