@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   dast:
@@ -86,7 +87,7 @@ jobs:
 
 
       # --------------------------------
-      # 7. Upload Flask logs if needed
+      # 7. Upload Flask logs
       # --------------------------------
       - name: Upload Flask logs
         if: always()
