@@ -14,13 +14,13 @@ from werkzeug.security import (
 )
 
 from database import init_db, get_db_connection
+from config import Config
 
 
 app = Flask(__name__)
 
-# Development-only secret.
-# Production implementation will use environment-based secrets.
-app.secret_key = "secureflow-development-key"
+# Load application configuration
+app.config.from_object(Config)
 
 init_db()
 
@@ -144,9 +144,10 @@ def profile_api(user_id):
             "error": "Authentication required"
         }), 401
 
-    # Authorization check:
-    # A normal user can only access their own profile.
-    if session.get("role") != "admin" and session["user_id"] != user_id:
+    if (
+        session.get("role") != "admin"
+        and session["user_id"] != user_id
+    ):
         return jsonify({
             "error": "Access denied"
         }), 403
