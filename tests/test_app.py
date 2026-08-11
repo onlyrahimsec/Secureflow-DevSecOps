@@ -45,3 +45,12 @@ def test_dashboard_requires_authentication():
 
     assert response.status_code == 302
     assert "/login" in response.location
+
+
+def test_admin_requires_authentication():
+    client = app.test_client()
+
+    response = client.get("/admin")
+
+    assert response.status_code == 302
+    assert "/login" in response.location
