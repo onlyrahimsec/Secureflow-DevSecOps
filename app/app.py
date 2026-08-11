@@ -22,12 +22,21 @@ app = Flask(__name__)
 # Load application configuration
 app.config.from_object(Config)
 
+# Initialize database
 init_db()
 
 
 @app.route("/")
 def home():
     return render_template("index.html")
+
+
+@app.route("/health")
+def health():
+    return {
+        "status": "ok",
+        "service": "SecureFlow"
+    }, 200
 
 
 @app.route("/register", methods=["GET", "POST"])
