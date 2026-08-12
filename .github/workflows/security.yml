@@ -160,7 +160,6 @@ jobs:
 
       - name: Wait for SecureFlow
         run: |
-
           for i in {1..30}; do
 
             if curl -fsS http://127.0.0.1:5000/health; then
@@ -178,7 +177,6 @@ jobs:
           echo ""
           echo "Application log:"
           cat secureflow.log
-
           exit 1
 
       - name: Run OWASP ZAP Baseline Scan
@@ -271,10 +269,10 @@ jobs:
           python -m pip install --upgrade pip-audit
 
       # ----------------------------------------------------------
-      # SP6 — Dependency Vulnerability Scan
+      # SP6 — Detailed dependency vulnerability report
       # ----------------------------------------------------------
 
-      - name: Run dependency vulnerability scan
+      - name: Run detailed dependency vulnerability scan
         run: |
 
           echo "=========================================="
@@ -297,7 +295,7 @@ jobs:
           echo "=========================================="
 
       # ----------------------------------------------------------
-      # SP6 — JSON Security Report
+      # SP6 — JSON security report
       # ----------------------------------------------------------
 
       - name: Generate dependency security report
@@ -310,7 +308,7 @@ jobs:
             --output=pip-audit-report.json || true
 
       # ----------------------------------------------------------
-      # SP6 — Upload Security Report
+      # SP6 — Upload security report
       # ----------------------------------------------------------
 
       - name: Upload dependency security report
@@ -366,11 +364,11 @@ jobs:
 
 
   # ============================================================
-  # SP7 — Secret & Credential Scanning
+  # SP7 — Secret / Credential Scanning
   # ============================================================
 
   secret-scan:
-    name: Secret & Credential Scan
+    name: Secret Security Scan
     runs-on: ubuntu-latest
 
     steps:
@@ -380,10 +378,35 @@ jobs:
         with:
           fetch-depth: 0
 
+      # ----------------------------------------------------------
+      # Scan repository for leaked secrets
+      # ----------------------------------------------------------
+
       - name: Run Gitleaks
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ----------------------------------------------------------
+      # Security scan summary
+      # ----------------------------------------------------------
+
+      - name: Secret scan completed
+        if: success()
+        run: |
+
+          echo "=========================================="
+          echo "       SecureFlow Secret Security Scan"
+          echo "=========================================="
+          echo ""
+
+          echo "✓ Repository secret scan completed."
+          echo "✓ No exposed secrets were detected."
+          echo ""
+
+          echo "=========================================="
+          echo "Secret Security Scan: PASSED"
+          echo "=========================================="
 
 
   # ============================================================
@@ -408,7 +431,7 @@ jobs:
         run: |
 
           echo "=========================================="
-          echo "      SecureFlow Secret Security Gate"
+          echo "      SecureFlow Secret Quality Gate"
           echo "=========================================="
           echo ""
 
@@ -416,13 +439,12 @@ jobs:
           echo ""
 
           if [ "${SECRET_SCAN_RESULT}" != "success" ]; then
-            echo "❌ Secret & credential scan failed."
+            echo "❌ Secret security scan failed."
             echo "Secret Security Quality Gate: FAILED"
             exit 1
           fi
 
-          echo "✓ No exposed secrets detected."
-          echo "✓ Secret scanning completed successfully."
+          echo "✓ Secret security scan passed."
           echo ""
 
           echo "=========================================="
