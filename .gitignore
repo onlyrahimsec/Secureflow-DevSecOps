@@ -9,7 +9,9 @@ env/
 
 # Environment variables
 .env
-.env.*
+.env.local
+.env.production
+.env.development
 
 # Local database
 *.db
@@ -19,6 +21,7 @@ env/
 # Test/cache
 .pytest_cache/
 .coverage
+coverage/
 
 # IDE
 .vscode/
