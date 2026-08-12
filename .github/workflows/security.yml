@@ -15,6 +15,7 @@ permissions:
   contents: read
   security-events: write
 
+
 jobs:
 
   # ============================================================
@@ -26,8 +27,6 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      # CI-only Flask secret.
-      # Never use this value in production.
       SECRET_KEY: "secureflow-ci-test-secret-key-2026"
 
     steps:
@@ -52,6 +51,7 @@ jobs:
         run: |
           pytest -v
 
+
   # ============================================================
   # SP4 — CodeQL Security Analysis
   # ============================================================
@@ -72,6 +72,7 @@ jobs:
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
+
 
   # ============================================================
   # SP4 — Security Quality Gate
@@ -95,6 +96,7 @@ jobs:
           CODEQL_RESULT: ${{ needs.codeql.result }}
 
         run: |
+
           echo "=========================================="
           echo "       SecureFlow Security Quality Gate"
           echo "=========================================="
@@ -119,6 +121,113 @@ jobs:
           echo "✓ Security regression tests passed."
           echo "✓ CodeQL analysis completed."
           echo ""
+
           echo "=========================================="
           echo "Security Quality Gate: PASSED"
+          echo "=========================================="
+
+
+  # ============================================================
+  # SP5 — OWASP ZAP DAST Scan
+  # ============================================================
+
+  zap-scan:
+    name: OWASP ZAP DAST Scan
+    runs-on: ubuntu-latest
+
+    env:
+      SECRET_KEY: "secureflow-ci-test-secret-2026"
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install application dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r app/requirements.txt
+
+      - name: Start SecureFlow application
+        run: |
+          nohup python app/app.py > secureflow.log 2>&1 &
+
+      - name: Wait for SecureFlow
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:5000/health; then
+              echo ""
+              echo "SecureFlow is ready."
+              exit 0
+            fi
+
+            echo "Waiting for SecureFlow..."
+            sleep 2
+          done
+
+          echo "SecureFlow failed to start."
+          echo "Application log:"
+          cat secureflow.log
+          exit 1
+
+      - name: Run OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: "http://127.0.0.1:5000"
+          allow_issue_writing: false
+          artifact_name: "zap-scan"
+
+      - name: Upload SecureFlow application log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: secureflow-application-log
+          path: secureflow.log
+          if-no-files-found: ignore
+
+
+  # ============================================================
+  # SP5 — DAST Security Quality Gate
+  # ============================================================
+
+  zap-gate:
+    name: DAST Security Quality Gate
+    runs-on: ubuntu-latest
+
+    needs:
+      - zap-scan
+
+    if: ${{ always() }}
+
+    steps:
+
+      - name: Check ZAP result
+        env:
+          ZAP_RESULT: ${{ needs.zap-scan.result }}
+
+        run: |
+
+          echo "=========================================="
+          echo "        SecureFlow DAST Quality Gate"
+          echo "=========================================="
+          echo ""
+
+          echo "OWASP ZAP Scan: ${ZAP_RESULT}"
+          echo ""
+
+          if [ "${ZAP_RESULT}" != "success" ]; then
+            echo "❌ OWASP ZAP security scan failed."
+            echo "DAST Security Quality Gate: FAILED"
+            exit 1
+          fi
+
+          echo "✓ OWASP ZAP scan completed successfully."
+          echo ""
+          echo "=========================================="
+          echo "DAST Security Quality Gate: PASSED"
           echo "=========================================="
