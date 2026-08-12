@@ -22,16 +22,12 @@ app = Flask(__name__)
 # Load application configuration
 app.config.from_object(Config)
 
-# Ensure session support is available during tests and runtime
-if not app.config.get("SECRET_KEY"):
-    app.config["SECRET_KEY"] = "secureflow-development-secret-key"
-
 # Initialize database
 init_db()
 
 
 # ============================================================
-# SECURITY HEADERS
+# Security Response Headers
 # ============================================================
 
 @app.after_request
@@ -49,18 +45,53 @@ def add_security_headers(response):
         "script-src 'self'; "
         "style-src 'self' 'unsafe-inline'; "
         "img-src 'self' data:; "
+        "font-src 'self' data:; "
         "object-src 'none'; "
         "base-uri 'self'; "
-        "frame-ancestors 'none';"
+        "form-action 'self'; "
+        "frame-ancestors 'none'; "
+        "connect-src 'self'; "
+        "manifest-src 'self'; "
+        "worker-src 'self';"
     )
+
+    # Referrer protection
+    response.headers["Referrer-Policy"] = (
+        "strict-origin-when-cross-origin"
+    )
+
+    # Permissions Policy
+    response.headers["Permissions-Policy"] = (
+        "camera=(), "
+        "microphone=(), "
+        "geolocation=(), "
+        "payment=(), "
+        "usb=()"
+    )
+
+    # Cross-Origin isolation
+    response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+
+    # Prevent sensitive application responses from being cached
+    response.headers["Cache-Control"] = "no-store"
 
     return response
 
+
+# ============================================================
+# Home
+# ============================================================
 
 @app.route("/")
 def home():
     return render_template("index.html")
 
+
+# ============================================================
+# Health Check
+# ============================================================
 
 @app.route("/health")
 def health():
@@ -70,60 +101,110 @@ def health():
     }, 200
 
 
+# ============================================================
+# Registration
+# ============================================================
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
 
     if request.method == "POST":
 
-        username = request.form.get("username", "").strip()
-        email = request.form.get("email", "").strip()
-        password = request.form.get("password", "")
+        username = request.form.get(
+            "username",
+            ""
+        ).strip()
+
+        email = request.form.get(
+            "email",
+            ""
+        ).strip()
+
+        password = request.form.get(
+            "password",
+            ""
+        )
 
         if not username or not email or not password:
             return "All fields are required.", 400
 
-        password_hash = generate_password_hash(password)
+        password_hash = generate_password_hash(
+            password
+        )
 
         connection = get_db_connection()
 
         try:
+
             connection.execute(
                 """
-                INSERT INTO users (username, email, password_hash)
+                INSERT INTO users (
+                    username,
+                    email,
+                    password_hash
+                )
                 VALUES (?, ?, ?)
                 """,
-                (username, email, password_hash)
+                (
+                    username,
+                    email,
+                    password_hash
+                )
             )
 
             connection.commit()
 
         except Exception:
+
             connection.close()
+
             return "Unable to create account.", 400
 
         connection.close()
 
-        return redirect(url_for("login"))
+        return redirect(
+            url_for("login")
+        )
 
-    return render_template("register.html")
+    return render_template(
+        "register.html"
+    )
 
+
+# ============================================================
+# Login
+# ============================================================
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
 
     if request.method == "POST":
 
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "")
+        username = request.form.get(
+            "username",
+            ""
+        ).strip()
+
+        password = request.form.get(
+            "password",
+            ""
+        )
 
         if not username or not password:
-            return "Username and password are required.", 400
+            return (
+                "Username and password are required.",
+                400
+            )
 
         connection = get_db_connection()
 
         user = connection.execute(
             """
-            SELECT id, username, password_hash, role
+            SELECT
+                id,
+                username,
+                password_hash,
+                role
             FROM users
             WHERE username = ?
             """,
@@ -143,18 +224,31 @@ def login():
             session["username"] = user["username"]
             session["role"] = user["role"]
 
-            return redirect(url_for("dashboard"))
+            return redirect(
+                url_for("dashboard")
+            )
 
-        return "Invalid username or password.", 401
+        return (
+            "Invalid username or password.",
+            401
+        )
 
-    return render_template("login.html")
+    return render_template(
+        "login.html"
+    )
 
+
+# ============================================================
+# Dashboard
+# ============================================================
 
 @app.route("/dashboard")
 def dashboard():
 
     if "user_id" not in session:
-        return redirect(url_for("login"))
+        return redirect(
+            url_for("login")
+        )
 
     return render_template(
         "dashboard.html",
@@ -162,11 +256,17 @@ def dashboard():
     )
 
 
+# ============================================================
+# Admin Panel
+# ============================================================
+
 @app.route("/admin")
 def admin():
 
     if "user_id" not in session:
-        return redirect(url_for("login"))
+        return redirect(
+            url_for("login")
+        )
 
     if session.get("role") != "admin":
         return "Access denied.", 403
@@ -176,6 +276,10 @@ def admin():
         username=session["username"]
     )
 
+
+# ============================================================
+# Profile API
+# ============================================================
 
 @app.route("/api/profile/<int:user_id>")
 def profile_api(user_id):
@@ -197,7 +301,12 @@ def profile_api(user_id):
 
     user = connection.execute(
         """
-        SELECT id, username, email, role, created_at
+        SELECT
+            id,
+            username,
+            email,
+            role,
+            created_at
         FROM users
         WHERE id = ?
         """,
@@ -220,13 +329,23 @@ def profile_api(user_id):
     })
 
 
+# ============================================================
+# Logout
+# ============================================================
+
 @app.route("/logout")
 def logout():
 
     session.clear()
 
-    return redirect(url_for("login"))
+    return redirect(
+        url_for("login")
+    )
 
+
+# ============================================================
+# Application Entry Point
+# ============================================================
 
 if __name__ == "__main__":
 
