@@ -265,14 +265,48 @@ jobs:
 
       - name: Install pip-audit
         run: |
-          python -m pip install pip-audit
+          python -m pip install --upgrade pip-audit
 
-      - name: Run dependency vulnerability scan
+      # ----------------------------------------------------------
+      # SP6 — Detailed dependency vulnerability report
+      # ----------------------------------------------------------
+
+      - name: Run detailed dependency vulnerability scan
+        run: |
+          echo "=========================================="
+          echo "      SecureFlow Dependency Audit"
+          echo "=========================================="
+          echo ""
+
+          echo "Auditing dependencies from:"
+          echo "app/requirements.txt"
+          echo ""
+
+          pip-audit \
+            -r app/requirements.txt \
+            --desc \
+            --format columns
+
+          echo ""
+          echo "=========================================="
+          echo "Dependency audit completed."
+          echo "=========================================="
+
+      # ----------------------------------------------------------
+      # SP6 — JSON security report
+      # ----------------------------------------------------------
+
+      - name: Generate dependency security report
+        if: always()
         run: |
           pip-audit \
             -r app/requirements.txt \
             --format=json \
-            --output=pip-audit-report.json
+            --output=pip-audit-report.json || true
+
+      # ----------------------------------------------------------
+      # SP6 — Upload security report
+      # ----------------------------------------------------------
 
       - name: Upload dependency security report
         if: always()
