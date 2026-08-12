@@ -363,3 +363,68 @@ jobs:
           echo "=========================================="
           echo "SCA Security Quality Gate: PASSED"
           echo "=========================================="
+
+
+  # ============================================================
+  # SP7 — Secret & Credential Scanning
+  # ============================================================
+
+  secret-scan:
+    name: Secret & Credential Scan
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+  # ============================================================
+  # SP7 — Secret Security Quality Gate
+  # ============================================================
+
+  secret-gate:
+    name: Secret Security Quality Gate
+    runs-on: ubuntu-latest
+
+    needs:
+      - secret-scan
+
+    if: ${{ always() }}
+
+    steps:
+
+      - name: Check secret scan result
+        env:
+          SECRET_SCAN_RESULT: ${{ needs.secret-scan.result }}
+
+        run: |
+
+          echo "=========================================="
+          echo "      SecureFlow Secret Security Gate"
+          echo "=========================================="
+          echo ""
+
+          echo "Secret Scan: ${SECRET_SCAN_RESULT}"
+          echo ""
+
+          if [ "${SECRET_SCAN_RESULT}" != "success" ]; then
+            echo "❌ Secret & credential scan failed."
+            echo "Secret Security Quality Gate: FAILED"
+            exit 1
+          fi
+
+          echo "✓ No exposed secrets detected."
+          echo "✓ Secret scanning completed successfully."
+          echo ""
+
+          echo "=========================================="
+          echo "Secret Security Quality Gate: PASSED"
+          echo "=========================================="
