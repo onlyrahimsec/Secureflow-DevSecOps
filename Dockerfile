@@ -31,18 +31,14 @@ COPY app/requirements.txt /app/requirements.txt
 # Install dependencies
 # ------------------------------------------------------------
 
-RUN python -m pip install --no-cache-dir --upgrade pip setuptools \
-    && python -m pip install --no-cache-dir -r /app/requirements.txt \
-    && python -m pip install --no-cache-dir --upgrade \
-        "msgpack>=1.2.1" \
-        "setuptools>=78.1.1"
+RUN python -m pip install --no-cache-dir --upgrade pip \
+    && python -m pip install --no-cache-dir -r /app/requirements.txt
 
 # ------------------------------------------------------------
 # Remove pip cache and temporary files
 # ------------------------------------------------------------
 
-RUN rm -rf /root/.cache/pip \
-           /tmp/*
+RUN rm -rf /root/.cache/pip /tmp/*
 
 # ------------------------------------------------------------
 # Verify actual installed versions
