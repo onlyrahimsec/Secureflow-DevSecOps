@@ -22,42 +22,46 @@ app = Flask(__name__)
 # Load application configuration
 app.config.from_object(Config)
 
-
 # Initialize database
 init_db()
 
 
-# ---------------------------------------------------------
-# Security Headers
-# ---------------------------------------------------------
+# ============================================================
+# SECURITY HEADERS
+# ============================================================
 
 @app.after_request
 def add_security_headers(response):
-    """
-    Add security-related HTTP response headers.
 
-    SF-001 remediation:
-    X-Content-Type-Options prevents browsers from MIME-sniffing
-    the response content.
-    """
-
+    # Prevent MIME-type sniffing
     response.headers["X-Content-Type-Options"] = "nosniff"
+
+    # Content Security Policy
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "object-src 'none'; "
+        "base-uri 'self'; "
+        "frame-ancestors 'none';"
+    )
 
     return response
 
 
-# ---------------------------------------------------------
-# Home
-# ---------------------------------------------------------
+# ============================================================
+# HOME
+# ============================================================
 
 @app.route("/")
 def home():
     return render_template("index.html")
 
 
-# ---------------------------------------------------------
-# Health Check
-# ---------------------------------------------------------
+# ============================================================
+# HEALTH CHECK
+# ============================================================
 
 @app.route("/health")
 def health():
@@ -67,9 +71,9 @@ def health():
     }, 200
 
 
-# ---------------------------------------------------------
-# Registration
-# ---------------------------------------------------------
+# ============================================================
+# REGISTER
+# ============================================================
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -88,7 +92,6 @@ def register():
         connection = get_db_connection()
 
         try:
-
             connection.execute(
                 """
                 INSERT INTO users (username, email, password_hash)
@@ -100,9 +103,7 @@ def register():
             connection.commit()
 
         except Exception:
-
             connection.close()
-
             return "Unable to create account.", 400
 
         connection.close()
@@ -112,9 +113,9 @@ def register():
     return render_template("register.html")
 
 
-# ---------------------------------------------------------
-# Login
-# ---------------------------------------------------------
+# ============================================================
+# LOGIN
+# ============================================================
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -158,9 +159,9 @@ def login():
     return render_template("login.html")
 
 
-# ---------------------------------------------------------
-# Dashboard
-# ---------------------------------------------------------
+# ============================================================
+# DASHBOARD
+# ============================================================
 
 @app.route("/dashboard")
 def dashboard():
@@ -174,9 +175,9 @@ def dashboard():
     )
 
 
-# ---------------------------------------------------------
-# Admin
-# ---------------------------------------------------------
+# ============================================================
+# ADMIN
+# ============================================================
 
 @app.route("/admin")
 def admin():
@@ -193,9 +194,9 @@ def admin():
     )
 
 
-# ---------------------------------------------------------
-# Profile API
-# ---------------------------------------------------------
+# ============================================================
+# PROFILE API
+# ============================================================
 
 @app.route("/api/profile/<int:user_id>")
 def profile_api(user_id):
@@ -240,9 +241,9 @@ def profile_api(user_id):
     })
 
 
-# ---------------------------------------------------------
-# Logout
-# ---------------------------------------------------------
+# ============================================================
+# LOGOUT
+# ============================================================
 
 @app.route("/logout")
 def logout():
@@ -252,9 +253,9 @@ def logout():
     return redirect(url_for("login"))
 
 
-# ---------------------------------------------------------
-# Application Entry Point
-# ---------------------------------------------------------
+# ============================================================
+# APPLICATION ENTRY POINT
+# ============================================================
 
 if __name__ == "__main__":
 
