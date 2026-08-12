@@ -76,8 +76,12 @@ jobs:
             -t secureflow:ci-${{ github.sha }} \
             .
 
+      # ----------------------------------------------------------
+      # Trivy — HIGH / CRITICAL vulnerability gate
+      # ----------------------------------------------------------
+
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: "secureflow:ci-${{ github.sha }}"
           format: "table"
@@ -86,9 +90,13 @@ jobs:
           vuln-type: "os,library"
           severity: "CRITICAL,HIGH"
 
+      # ----------------------------------------------------------
+      # Trivy — JSON security report
+      # ----------------------------------------------------------
+
       - name: Generate Trivy JSON report
         if: always()
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: "secureflow:ci-${{ github.sha }}"
           format: "json"
@@ -97,6 +105,10 @@ jobs:
           ignore-unfixed: true
           vuln-type: "os,library"
           severity: "CRITICAL,HIGH"
+
+      # ----------------------------------------------------------
+      # Upload Trivy report
+      # ----------------------------------------------------------
 
       - name: Upload Trivy security report
         if: always()
@@ -139,21 +151,33 @@ jobs:
           echo "Trivy Scan:   ${SCAN_RESULT}"
           echo ""
 
+          # ------------------------------------------------------
+          # Docker build validation
+          # ------------------------------------------------------
+
           if [ "${BUILD_RESULT}" != "success" ]; then
             echo "❌ Docker image build failed."
             echo "Container Security Quality Gate: FAILED"
             exit 1
           fi
 
+          # ------------------------------------------------------
+          # Trivy validation
+          # ------------------------------------------------------
+
           if [ "${SCAN_RESULT}" != "success" ]; then
             echo "❌ Container vulnerability scan failed."
-            echo "HIGH/CRITICAL vulnerabilities detected."
+            echo "HIGH/CRITICAL vulnerabilities detected or scan failed."
             echo "Container Security Quality Gate: FAILED"
             exit 1
           fi
 
+          # ------------------------------------------------------
+          # Success
+          # ------------------------------------------------------
+
           echo "✓ Docker image built successfully."
-          echo "✓ Container vulnerability scan passed."
+          echo "✓ Trivy container vulnerability scan passed."
           echo "✓ No unfixed HIGH/CRITICAL vulnerabilities detected."
           echo ""
 
