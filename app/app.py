@@ -22,6 +22,10 @@ app = Flask(__name__)
 # Load application configuration
 app.config.from_object(Config)
 
+# Ensure session support is available during tests and runtime
+if not app.config.get("SECRET_KEY"):
+    app.config["SECRET_KEY"] = "secureflow-development-secret-key"
+
 # Initialize database
 init_db()
 
@@ -35,6 +39,9 @@ def add_security_headers(response):
 
     # Prevent MIME-type sniffing
     response.headers["X-Content-Type-Options"] = "nosniff"
+
+    # Prevent clickjacking
+    response.headers["X-Frame-Options"] = "DENY"
 
     # Content Security Policy
     response.headers["Content-Security-Policy"] = (
@@ -50,18 +57,10 @@ def add_security_headers(response):
     return response
 
 
-# ============================================================
-# HOME
-# ============================================================
-
 @app.route("/")
 def home():
     return render_template("index.html")
 
-
-# ============================================================
-# HEALTH CHECK
-# ============================================================
 
 @app.route("/health")
 def health():
@@ -70,10 +69,6 @@ def health():
         "service": "SecureFlow"
     }, 200
 
-
-# ============================================================
-# REGISTER
-# ============================================================
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -112,10 +107,6 @@ def register():
 
     return render_template("register.html")
 
-
-# ============================================================
-# LOGIN
-# ============================================================
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -159,10 +150,6 @@ def login():
     return render_template("login.html")
 
 
-# ============================================================
-# DASHBOARD
-# ============================================================
-
 @app.route("/dashboard")
 def dashboard():
 
@@ -174,10 +161,6 @@ def dashboard():
         username=session["username"]
     )
 
-
-# ============================================================
-# ADMIN
-# ============================================================
 
 @app.route("/admin")
 def admin():
@@ -193,10 +176,6 @@ def admin():
         username=session["username"]
     )
 
-
-# ============================================================
-# PROFILE API
-# ============================================================
 
 @app.route("/api/profile/<int:user_id>")
 def profile_api(user_id):
@@ -241,10 +220,6 @@ def profile_api(user_id):
     })
 
 
-# ============================================================
-# LOGOUT
-# ============================================================
-
 @app.route("/logout")
 def logout():
 
@@ -252,10 +227,6 @@ def logout():
 
     return redirect(url_for("login"))
 
-
-# ============================================================
-# APPLICATION ENTRY POINT
-# ============================================================
 
 if __name__ == "__main__":
 
