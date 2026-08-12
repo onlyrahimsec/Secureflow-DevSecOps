@@ -12,7 +12,6 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Application directory
 WORKDIR /app
 
 # ------------------------------------------------------------
@@ -23,32 +22,37 @@ RUN addgroup --system secureflow \
     && adduser --system --ingroup secureflow secureflow
 
 # ------------------------------------------------------------
-# Copy dependency definition first
+# Copy requirements
 # ------------------------------------------------------------
 
 COPY app/requirements.txt /app/requirements.txt
 
 # ------------------------------------------------------------
-# Upgrade packaging tooling and install dependencies
+# Install dependencies
 # ------------------------------------------------------------
 
-RUN python -m pip install --no-cache-dir --upgrade \
-        pip \
-        setuptools>=78.1.1 \
-    && python -m pip install --no-cache-dir \
-        msgpack>=1.2.1 \
-    && python -m pip install --no-cache-dir \
-        -r /app/requirements.txt
+RUN python -m pip install --no-cache-dir --upgrade pip setuptools \
+    && python -m pip install --no-cache-dir -r /app/requirements.txt \
+    && python -m pip install --no-cache-dir --upgrade \
+        "msgpack>=1.2.1" \
+        "setuptools>=78.1.1"
 
 # ------------------------------------------------------------
-# Explicit security verification
+# Remove pip cache and temporary files
 # ------------------------------------------------------------
 
-RUN python -c "import setuptools; print('setuptools:', setuptools.__version__)" \
-    && python -c "import msgpack; print('msgpack:', msgpack.__version__)"
+RUN rm -rf /root/.cache/pip \
+           /tmp/*
 
 # ------------------------------------------------------------
-# Copy application source
+# Verify actual installed versions
+# ------------------------------------------------------------
+
+RUN python -c "import msgpack; print('msgpack:', msgpack.__version__)" \
+    && python -c "import setuptools; print('setuptools:', setuptools.__version__)"
+
+# ------------------------------------------------------------
+# Copy application
 # ------------------------------------------------------------
 
 COPY app /app/app
@@ -72,7 +76,7 @@ USER secureflow
 EXPOSE 5000
 
 # ------------------------------------------------------------
-# Container health check
+# Health check
 # ------------------------------------------------------------
 
 HEALTHCHECK \
@@ -84,7 +88,7 @@ HEALTHCHECK \
     || exit 1
 
 # ------------------------------------------------------------
-# Start SecureFlow
+# Start application
 # ------------------------------------------------------------
 
 CMD ["python", "app/app.py"]
