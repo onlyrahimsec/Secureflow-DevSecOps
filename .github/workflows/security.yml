@@ -15,7 +15,6 @@ permissions:
   contents: read
   security-events: write
 
-
 jobs:
 
   # ============================================================
@@ -161,7 +160,9 @@ jobs:
 
       - name: Wait for SecureFlow
         run: |
+
           for i in {1..30}; do
+
             if curl -fsS http://127.0.0.1:5000/health; then
               echo ""
               echo "SecureFlow is ready."
@@ -170,12 +171,14 @@ jobs:
 
             echo "Waiting for SecureFlow..."
             sleep 2
+
           done
 
           echo "SecureFlow failed to start."
           echo ""
           echo "Application log:"
           cat secureflow.log
+
           exit 1
 
       - name: Run OWASP ZAP Baseline Scan
@@ -268,11 +271,12 @@ jobs:
           python -m pip install --upgrade pip-audit
 
       # ----------------------------------------------------------
-      # SP6 — Detailed dependency vulnerability report
+      # SP6 — Dependency Vulnerability Scan
       # ----------------------------------------------------------
 
-      - name: Run detailed dependency vulnerability scan
+      - name: Run dependency vulnerability scan
         run: |
+
           echo "=========================================="
           echo "      SecureFlow Dependency Audit"
           echo "=========================================="
@@ -293,19 +297,20 @@ jobs:
           echo "=========================================="
 
       # ----------------------------------------------------------
-      # SP6 — JSON security report
+      # SP6 — JSON Security Report
       # ----------------------------------------------------------
 
       - name: Generate dependency security report
         if: always()
         run: |
+
           pip-audit \
             -r app/requirements.txt \
             --format=json \
             --output=pip-audit-report.json || true
 
       # ----------------------------------------------------------
-      # SP6 — Upload security report
+      # SP6 — Upload Security Report
       # ----------------------------------------------------------
 
       - name: Upload dependency security report
