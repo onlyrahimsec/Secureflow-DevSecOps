@@ -1,0 +1,162 @@
+name: Container Security
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+
+  # ============================================================
+  # SP8 — Docker Image Build
+  # ============================================================
+
+  docker-build:
+    name: Build SecureFlow Container
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t secureflow:ci-${{ github.sha }} \
+            .
+
+      - name: Verify Docker image
+        run: |
+          echo "=========================================="
+          echo "       SecureFlow Container Build"
+          echo "=========================================="
+          echo ""
+
+          docker image inspect secureflow:ci-${{ github.sha }} > /dev/null
+
+          echo "✓ Docker image built successfully."
+          echo "✓ Image: secureflow:ci-${{ github.sha }}"
+          echo ""
+
+          echo "=========================================="
+          echo "Container Build: PASSED"
+          echo "=========================================="
+
+
+  # ============================================================
+  # SP8 — Trivy Container Vulnerability Scan
+  # ============================================================
+
+  container-scan:
+    name: Container Vulnerability Scan
+    runs-on: ubuntu-latest
+
+    needs:
+      - docker-build
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t secureflow:ci-${{ github.sha }} \
+            .
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: "secureflow:ci-${{ github.sha }}"
+          format: "table"
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
+
+      - name: Generate Trivy JSON report
+        if: always()
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: "secureflow:ci-${{ github.sha }}"
+          format: "json"
+          output: "trivy-container-report.json"
+          exit-code: "0"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
+
+      - name: Upload Trivy security report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-container-security-report
+          path: trivy-container-report.json
+          if-no-files-found: ignore
+
+
+  # ============================================================
+  # SP8 — Container Security Quality Gate
+  # ============================================================
+
+  container-gate:
+    name: Container Security Quality Gate
+    runs-on: ubuntu-latest
+
+    needs:
+      - docker-build
+      - container-scan
+
+    if: ${{ always() }}
+
+    steps:
+
+      - name: Check container security results
+        env:
+          BUILD_RESULT: ${{ needs.docker-build.result }}
+          SCAN_RESULT: ${{ needs.container-scan.result }}
+
+        run: |
+
+          echo "=========================================="
+          echo "     SecureFlow Container Security Gate"
+          echo "=========================================="
+          echo ""
+
+          echo "Docker Build: ${BUILD_RESULT}"
+          echo "Trivy Scan:   ${SCAN_RESULT}"
+          echo ""
+
+          if [ "${BUILD_RESULT}" != "success" ]; then
+            echo "❌ Docker image build failed."
+            echo "Container Security Quality Gate: FAILED"
+            exit 1
+          fi
+
+          if [ "${SCAN_RESULT}" != "success" ]; then
+            echo "❌ Container vulnerability scan failed."
+            echo "HIGH/CRITICAL vulnerabilities detected."
+            echo "Container Security Quality Gate: FAILED"
+            exit 1
+          fi
+
+          echo "✓ Docker image built successfully."
+          echo "✓ Container vulnerability scan passed."
+          echo "✓ No unfixed HIGH/CRITICAL vulnerabilities detected."
+          echo ""
+
+          echo "=========================================="
+          echo "Container Security Quality Gate: PASSED"
+          echo "=========================================="
