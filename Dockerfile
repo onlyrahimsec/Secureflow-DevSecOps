@@ -11,6 +11,7 @@ FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV PIP_NO_CACHE_DIR=1
 
 WORKDIR /app
 
@@ -28,24 +29,34 @@ RUN addgroup --system secureflow \
 COPY app/requirements.txt /app/requirements.txt
 
 # ------------------------------------------------------------
-# Install dependencies
+# Upgrade packaging tools first
 # ------------------------------------------------------------
 
-RUN python -m pip install --no-cache-dir --upgrade pip \
-    && python -m pip install --no-cache-dir -r /app/requirements.txt
+RUN python -m pip install --no-cache-dir --upgrade \
+        pip \
+        setuptools==83.0.0 \
+    && python -m pip install --no-cache-dir \
+        -r /app/requirements.txt \
+    && python -m pip install --no-cache-dir \
+        "msgpack==1.2.1" \
+        "setuptools==83.0.0"
 
 # ------------------------------------------------------------
-# Remove pip cache and temporary files
+# Remove caches and temporary files
 # ------------------------------------------------------------
 
-RUN rm -rf /root/.cache/pip /tmp/*
+RUN rm -rf \
+        /root/.cache/pip \
+        /tmp/*
 
 # ------------------------------------------------------------
 # Verify actual installed versions
 # ------------------------------------------------------------
 
 RUN python -c "import msgpack; print('msgpack:', msgpack.__version__)" \
-    && python -c "import setuptools; print('setuptools:', setuptools.__version__)"
+    && python -c "import setuptools; print('setuptools:', setuptools.__version__)" \
+    && python -m pip show msgpack \
+    && python -m pip show setuptools
 
 # ------------------------------------------------------------
 # Copy application
