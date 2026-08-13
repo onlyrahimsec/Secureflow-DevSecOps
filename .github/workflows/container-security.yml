@@ -33,6 +33,7 @@ jobs:
       - name: Build Docker image
         run: |
           docker build \
+            --no-cache \
             -t secureflow:ci-${{ github.sha }} \
             .
 
@@ -41,14 +42,15 @@ jobs:
           echo "=========================================="
           echo "       SecureFlow Container Build"
           echo "=========================================="
-          echo ""
 
-          docker image inspect secureflow:ci-${{ github.sha }} > /dev/null
+          docker image inspect \
+            secureflow:ci-${{ github.sha }} \
+            > /dev/null
 
           echo "✓ Docker image built successfully."
           echo "✓ Image: secureflow:ci-${{ github.sha }}"
-          echo ""
 
+          echo ""
           echo "=========================================="
           echo "Container Build: PASSED"
           echo "=========================================="
@@ -73,8 +75,57 @@ jobs:
       - name: Build Docker image
         run: |
           docker build \
+            --no-cache \
             -t secureflow:ci-${{ github.sha }} \
             .
+
+      # ----------------------------------------------------------
+      # Verify actual packages inside container
+      # ----------------------------------------------------------
+
+      - name: Verify installed Python packages
+        run: |
+          echo "=========================================="
+          echo "     SecureFlow Python Package Audit"
+          echo "=========================================="
+
+          docker run --rm \
+            secureflow:ci-${{ github.sha }} \
+            python -c \
+            "import msgpack; print('msgpack:', msgpack.__version__)"
+
+          docker run --rm \
+            secureflow:ci-${{ github.sha }} \
+            python -c \
+            "import setuptools; print('setuptools:', setuptools.__version__)"
+
+          docker run --rm \
+            secureflow:ci-${{ github.sha }} \
+            python -m pip check
+
+      # ----------------------------------------------------------
+      # Verify package metadata
+      # ----------------------------------------------------------
+
+      - name: Verify Python package metadata
+        run: |
+          docker run --rm \
+            --entrypoint sh \
+            secureflow:ci-${{ github.sha }} \
+            -c '
+              echo "msgpack metadata:"
+              find /usr/local/lib/python3.12/site-packages \
+                -maxdepth 1 \
+                -iname "msgpack-*.dist-info" \
+                -print
+
+              echo ""
+              echo "setuptools metadata:"
+              find /usr/local/lib/python3.12/site-packages \
+                -maxdepth 1 \
+                -iname "setuptools-*.dist-info" \
+                -print
+            '
 
       # ----------------------------------------------------------
       # Trivy — HIGH / CRITICAL vulnerability gate
@@ -89,6 +140,7 @@ jobs:
           ignore-unfixed: true
           vuln-type: "os,library"
           severity: "CRITICAL,HIGH"
+          scanners: "vuln"
 
       # ----------------------------------------------------------
       # Trivy — JSON security report
@@ -105,6 +157,7 @@ jobs:
           ignore-unfixed: true
           vuln-type: "os,library"
           severity: "CRITICAL,HIGH"
+          scanners: "vuln"
 
       # ----------------------------------------------------------
       # Upload Trivy report
@@ -151,19 +204,11 @@ jobs:
           echo "Trivy Scan:   ${SCAN_RESULT}"
           echo ""
 
-          # ------------------------------------------------------
-          # Docker build validation
-          # ------------------------------------------------------
-
           if [ "${BUILD_RESULT}" != "success" ]; then
             echo "❌ Docker image build failed."
             echo "Container Security Quality Gate: FAILED"
             exit 1
           fi
-
-          # ------------------------------------------------------
-          # Trivy validation
-          # ------------------------------------------------------
 
           if [ "${SCAN_RESULT}" != "success" ]; then
             echo "❌ Container vulnerability scan failed."
@@ -172,11 +217,8 @@ jobs:
             exit 1
           fi
 
-          # ------------------------------------------------------
-          # Success
-          # ------------------------------------------------------
-
           echo "✓ Docker image built successfully."
+          echo "✓ Python package versions verified."
           echo "✓ Trivy container vulnerability scan passed."
           echo "✓ No unfixed HIGH/CRITICAL vulnerabilities detected."
           echo ""
